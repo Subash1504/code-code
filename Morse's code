@@ -1,0 +1,136 @@
+#include <WiFi.h>
+#include <WebServer.h>
+
+// Replace with your WiFi credentials
+const char* ssid = "SUBBU";
+const char* password = "12341234";
+
+WebServer server(80);
+
+const int ledPin = 2; // GPIO pin for LED (use onboard LED or external)
+
+// Morse code dictionary
+String morseCode(char c) {
+  switch (toupper(c)) {
+    case 'A': return ".-";
+    case 'B': return "-...";
+    case 'C': return "-.-.";
+    case 'D': return "-..";
+    case 'E': return ".";
+    case 'F': return "..-.";
+    case 'G': return "--.";
+    case 'H': return "....";
+    case 'I': return "..";
+    case 'J': return ".---";
+    case 'K': return "-.-";
+    case 'L': return ".-..";
+    case 'M': return "--";
+    case 'N': return "-.";
+    case 'O': return "---";
+    case 'P': return ".--.";
+    case 'Q': return "--.-";
+    case 'R': return ".-.";
+    case 'S': return "...";
+    case 'T': return "-";
+    case 'U': return "..-";
+    case 'V': return "...-";
+    case 'W': return ".--";
+    case 'X': return "-..-";
+    case 'Y': return "-.--";
+    case 'Z': return "--..";
+    case '1': return ".----";
+    case '2': return "..---";
+    case '3': return "...--";
+    case '4': return "....-";
+    case '5': return ".....";
+    case '6': return "-....";
+    case '7': return "--...";
+    case '8': return "---..";
+    case '9': return "----.";
+    case '0': return "-----";
+    case ' ': return " "; // space between words
+    default: return "";
+  }
+}
+
+// Blink LED for Morse code
+void blinkMorse(String code) {
+  for (int i = 0; i < code.length(); i++) {
+    if (code[i] == '.') {
+      digitalWrite(ledPin, HIGH);
+      delay(250); // dot duration
+      digitalWrite(ledPin, LOW);
+      delay(250);
+    } else if (code[i] == '-') {
+      digitalWrite(ledPin, HIGH);
+      delay(750); // dash duration
+      digitalWrite(ledPin, LOW);
+      delay(250);
+    } else if (code[i] == ' ') {
+      delay(1000); // space between words
+    }
+  }
+  delay(1500); // gap between letters
+}
+
+// Convert text to Morse and blink
+void processText(String text) {
+  for (int i = 0; i < text.length(); i++) {
+    String code = morseCode(text[i]);
+    blinkMorse(code);
+  }
+}
+
+// Webpage
+String htmlPage = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32 Morse Code</title>
+</head>
+<body>
+  <h2>Enter Text to Convert to Morse Code</h2>
+  <form action="/morse" method="GET">
+    <input type="text" name="msg">
+    <input type="submit" value="Send">
+  </form>
+</body>
+</html>
+)rawliteral";
+
+// Handle root
+void handleRoot() {
+  server.send(200, "text/html", htmlPage);
+}
+
+// Handle Morse conversion
+void handleMorse() {
+  if (server.hasArg("msg")) {
+    String message = server.arg("msg");
+    processText(message);
+    server.send(200, "text/html", "<h3>Message processed: " + message + "</h3><a href='/'>Back</a>");
+  } else {
+    server.send(200, "text/html", "<h3>No message received</h3><a href='/'>Back</a>");
+  }
+}
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+  Serial.begin(115200);
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to WiFi!");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", handleRoot);
+  server.on("/morse", handleMorse);
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+}
