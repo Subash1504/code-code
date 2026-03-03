@@ -1,0 +1,58 @@
+#include <Wire.h>
+#include <LiquidCrystal.h>
+
+// LCD pins: RS, E, D4, D5, D6, D7
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
+// Arduino I2C address
+#define SLAVE_ADDR 0x08
+
+String receivedMessage = "";
+
+void setup() {
+  // Initialize LCD
+  lcd.begin(16, 2);
+  lcd.print("Waiting for msg");
+
+  // Initialize Serial Monitor
+  Serial.begin(115200);
+
+  // Initialize I2C as slave
+  Wire.begin(SLAVE_ADDR);
+  Wire.onReceive(receiveEvent);
+
+  Serial.println("Arduino I2C Slave Ready");
+}
+
+void loop() {
+  // Display received message on LCD if not empty
+  if (receivedMessage.length() > 0) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    
+    // If message is longer than 16 chars, split into two lines
+    if (receivedMessage.length() <= 16) {
+      lcd.print(receivedMessage);
+    } else {
+      lcd.print(receivedMessage.substring(0, 16));
+      lcd.setCursor(0, 1);
+      lcd.print(receivedMessage.substring(16, min(32, receivedMessage.length())));
+    }
+
+    // Also print to Serial Monitor
+    Serial.print("Received from ESP32: ");
+    Serial.println(receivedMessage);
+
+    // Clear message after displaying
+    receivedMessage = "";
+  }
+}
+
+// I2C receive event
+void receiveEvent(int bytes) {
+  receivedMessage = "";
+  while (Wire.available()) {
+    char c = Wire.read();
+    receivedMessage += c;
+  }
+}
